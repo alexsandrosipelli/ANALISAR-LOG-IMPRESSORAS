@@ -1,56 +1,147 @@
-import pandas as pd
+<!DOCTYPE html>
+<html lang="pt-BR">
 
-# Função para carregar os dados da planilha
-def carregar_planilha(caminho):
-    # Carregar os dados no DataFrame
-    df = pd.read_excel(caminho)
-    return df
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validação de Impressoras</title>
+    <style>
+        /* Reset básico */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-# Função para calcular a variação entre os dias
-def calcular_variacao(df):
-    resultados = []
-    
-    # Iterar sobre os dados para comparar dia a dia
-    for i in range(1, len(df)):
-        # Obter os dados do dia anterior e do dia atual
-        setor_anterior = df.iloc[i-1]
-        setor_atual = df.iloc[i]
-        
-        # Verificar se o setor é o mesmo
-        if setor_anterior['Setor'] == setor_atual['Setor']:
-            # Calcular a variação percentual entre os dias (exemplo: variação de % de impressão)
-            try:
-                variação = abs(setor_atual['% Impressão'] - setor_anterior['% Impressão'])
-                
-                # Definir um critério de troca indevida (exemplo, variação > 20%)
-                if variação > 20:
-                    resultados.append({
-                        'Data': setor_atual['Data'],
-                        'Setor': setor_atual['Setor'],
-                        'Variação': variação
-                    })
-            except KeyError:
-                pass
-    return resultados
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 20px;
+        }
 
-# Função principal para execução
-def verificar_trocas_indevias(caminho_arquivo):
-    # Carregar os dados
-    df = carregar_planilha(caminho_arquivo)
-    
-    # Calcular as variações entre os dias
-    trocas_indevias = calcular_variacao(df)
-    
-    # Exibir as trocas indevidas
-    if trocas_indevias:
-        print("Trocas indevidas encontradas:")
-        for troca in trocas_indevias:
-            print(f"Data: {troca['Data']} | Setor: {troca['Setor']} | Variação: {troca['Variação']}%")
-    else:
-        print("Nenhuma troca indevida encontrada.")
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 10px 20px;
+            text-align: center;
+        }
 
-# Caminho do arquivo (substitua pelo caminho correto)
-caminho_arquivo = 'caminho_da_planilha.xlsx'
+        main {
+            margin-top: 20px;
+        }
 
-# Rodar a verificação
-verificar_trocas_indevias(caminho_arquivo)
+        h2 {
+            margin-top: 20px;
+        }
+
+        section {
+            margin-bottom: 30px;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 0.9rem;
+            margin-top: 40px;
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            background-color: #fff;
+            border: 2px solid #ccc;
+            margin-top: 10px;
+        }
+
+        #validationResults {
+            background-color: #fff;
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Validação de Impressoras</h1>
+        <p>Carregue os dados e validamos se ocorreu troca indevida!</p>
+    </header>
+
+    <main>
+        <section>
+            <h2>Carregar Arquivo</h2>
+            <input type="file" id="inputFile" accept=".csv, .xls, .xlsx" />
+        </section>
+
+        <section id="output">
+            <h2>Resultados da Validação</h2>
+            <pre id="validationResults">Nenhum dado carregado ainda...</pre>
+        </section>
+    </main>
+
+    <footer>
+        <p>Hospedado no <a href="https://pages.github.com/" target="_blank">GitHub Pages</a></p>
+    </footer>
+
+    <script>
+        document.getElementById('inputFile').addEventListener('change', handleFileUpload);
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const content = e.target.result;
+                    const data = parseCSV(content);
+                    const validationResults = validateData(data);
+                    displayResults(validationResults);
+                };
+                reader.readAsText(file);
+            } else {
+                alert('Por favor, selecione um arquivo!');
+            }
+        }
+
+        function parseCSV(content) {
+            const rows = content.split('\n');
+            const data = rows.map(row => row.split('\t'));  // Assumindo que os dados são separados por tabulação.
+            return data;
+        }
+
+        function validateData(data) {
+            const results = [];
+            let previousData = null;
+            data.forEach((row, index) => {
+                if (index === 0) {
+                    previousData = row;
+                    return;
+                }
+
+                const currentData = row;
+                const sector = currentData[1];
+
+                // Validação simples: se o setor for o mesmo que o anterior e as porcentagens de impressão diferirem muito.
+                if (sector === previousData[1] && Math.abs(currentData[3] - previousData[3]) > 10) {
+                    results.push(`Troca indevida detectada no setor: ${sector} no dia: ${currentData[0]}`);
+                }
+                previousData = currentData;
+            });
+            return results;
+        }
+
+        function displayResults(results) {
+            const resultElement = document.getElementById('validationResults');
+            if (results.length === 0) {
+                resultElement.textContent = 'Nenhuma troca indevida detectada.';
+            } else {
+                resultElement.textContent = results.join('\n');
+            }
+        }
+    </script>
+</body>
+
+</html>
