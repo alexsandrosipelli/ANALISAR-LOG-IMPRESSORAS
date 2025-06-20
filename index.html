@@ -1,9 +1,9 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validação de Dados de Impressoras</title>
+    <title>Validação de Trocas Indevidas em Impressoras01</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -35,13 +35,10 @@
     </style>
 </head>
 <body>
-    <h1>Validação de Alterações nas Impressoras</h1>
+    <h1>Validação de Alterações nas Impressoras (Trocas Indevidas)</h1>
 
-    <label for="csvFileOld">Arquivo CSV do dia anterior:</label>
-    <input type="file" id="csvFileOld" accept=".csv">
-    
-    <label for="csvFileNew">Arquivo CSV do dia atual:</label>
-    <input type="file" id="csvFileNew" accept=".csv">
+    <label for="csvFile">Arquivo CSV (com dados de 17/10/2024 a 20/06/2025):</label>
+    <input type="file" id="csvFile" accept=".csv">
     
     <button onclick="processCSV()">Comparar Dados</button>
 
@@ -66,37 +63,24 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script>
-        let dataOld = [];
-        let dataNew = [];
+        let data = [];
         let columnsToCheck = [
             'TONER', 'Magenta (%)', 'Yellow (%)', 'Cyan (%)', 
             'FOTOCONDUTOR', 'FUSOR', 'Mono Lifetime Count', 'Color Lifetime Count'
         ];
 
         function processCSV() {
-            const fileOld = document.getElementById("csvFileOld").files[0];
-            const fileNew = document.getElementById("csvFileNew").files[0];
+            const file = document.getElementById("csvFile").files[0];
 
-            if (!fileOld || !fileNew) {
-                alert("Por favor, selecione os dois arquivos CSV.");
+            if (!file) {
+                alert("Por favor, selecione o arquivo CSV.");
                 return;
             }
 
-            // Processar o CSV do dia anterior
-            Papa.parse(fileOld, {
+            // Processar o arquivo CSV
+            Papa.parse(file, {
                 complete: function(results) {
-                    dataOld = results.data;
-                    processNewCSV(fileNew);
-                },
-                header: true
-            });
-        }
-
-        function processNewCSV(fileNew) {
-            // Processar o CSV do dia atual
-            Papa.parse(fileNew, {
-                complete: function(results) {
-                    dataNew = results.data;
+                    data = results.data;
                     compareData();
                 },
                 header: true
@@ -105,16 +89,44 @@
 
         function compareData() {
             const changes = [];
-            dataNew.forEach(newRow => {
-                const oldRow = dataOld.find(row => row['Setor'] === newRow['Setor']);
-                if (oldRow) {
-                    const setor = newRow['Setor'];
-                    const data = newRow['DATA'];
+            let groupedData = {};
 
+            // Agrupar os dados por Serial Number
+            data.forEach(row => {
+                const serial = row['Serial Number'];
+                const dataRow = {
+                    data: row['DATA'],
+                    setor: row['Setor'],
+                    toner: row['TONER'],
+                    magenta: parseFloat(row['Magenta (%)']) || 0,
+                    yellow: parseFloat(row['Yellow (%)']) || 0,
+                    cyan: parseFloat(row['Cyan (%)']) || 0,
+                    fotocondutor: parseFloat(row['FOTOCONDUTOR']) || 0,
+                    fusor: parseFloat(row['FUSOR']) || 0,
+                    monoLifetime: parseFloat(row['Mono Lifetime Count']) || 0,
+                    colorLifetime: parseFloat(row['Color Lifetime Count']) || 0
+                };
+
+                if (!groupedData[serial]) {
+                    groupedData[serial] = [];
+                }
+
+                groupedData[serial].push(dataRow);
+            });
+
+            // Comparar os dados por Serial Number e Data
+            for (const serial in groupedData) {
+                const rows = groupedData[serial].sort((a, b) => new Date(a.data) - new Date(b.data));
+
+                for (let i = 1; i < rows.length; i++) {
+                    const prevRow = rows[i - 1];
+                    const currentRow = rows[i];
+
+                    // Comparar todas as colunas para verificar trocas indevidas
                     columnsToCheck.forEach(column => {
-                        const oldValue = parseFloat(oldRow[column]) || 0;
-                        const newValue = parseFloat(newRow[column]) || 0;
-                        const diff = newValue - oldValue;
+                        const prevValue = prevRow[column.toLowerCase().replace(' (%)', '')] || 0;
+                        const currentValue = currentRow[column.toLowerCase().replace(' (%)', '')] || 0;
+                        const diff = currentValue - prevValue;
 
                         let motivo = "";
                         let difDia = "";
@@ -133,19 +145,19 @@
 
                         if (motivo) {
                             changes.push({
-                                data: data,
-                                setor: setor,
-                                serial: newRow['Serial Number'],
+                                data: currentRow.data,
+                                setor: currentRow.setor,
+                                serial: serial,
                                 motivo: motivo,
                                 column: column,
-                                oldValue: oldValue,
-                                newValue: newValue,
+                                oldValue: prevValue,
+                                newValue: currentValue,
                                 difDia: difDia
                             });
                         }
                     });
                 }
-            });
+            }
 
             displayResults(changes);
         }
