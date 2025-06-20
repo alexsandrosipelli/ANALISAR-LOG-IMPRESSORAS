@@ -1,192 +1,56 @@
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validação de Trocas Indevidas em Impressoras01</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        input[type="file"] {
-            margin: 10px 0;
-        }
-        button {
-            margin: 10px;
-            padding: 10px;
-            font-size: 16px;
-        }
-        h2 {
-            color: #FF6347;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        table, th, td {
-            border: 1px solid #ddd;
-        }
-        th, td {
-            padding: 10px;
-            text-align: left;
-        }
-    </style>
-</head>
-<body>
-    <h1>Validação de Alterações nas Impressoras (Trocas Indevidas)</h1>
+import pandas as pd
 
-    <label for="csvFile">Arquivo CSV (com dados de 17/10/2024 a 20/06/2025):</label>
-    <input type="file" id="csvFile" accept=".csv">
+# Função para carregar os dados da planilha
+def carregar_planilha(caminho):
+    # Carregar os dados no DataFrame
+    df = pd.read_excel(caminho)
+    return df
+
+# Função para calcular a variação entre os dias
+def calcular_variacao(df):
+    resultados = []
     
-    <button onclick="processCSV()">Comparar Dados</button>
+    # Iterar sobre os dados para comparar dia a dia
+    for i in range(1, len(df)):
+        # Obter os dados do dia anterior e do dia atual
+        setor_anterior = df.iloc[i-1]
+        setor_atual = df.iloc[i]
+        
+        # Verificar se o setor é o mesmo
+        if setor_anterior['Setor'] == setor_atual['Setor']:
+            # Calcular a variação percentual entre os dias (exemplo: variação de % de impressão)
+            try:
+                variação = abs(setor_atual['% Impressão'] - setor_anterior['% Impressão'])
+                
+                # Definir um critério de troca indevida (exemplo, variação > 20%)
+                if variação > 20:
+                    resultados.append({
+                        'Data': setor_atual['Data'],
+                        'Setor': setor_atual['Setor'],
+                        'Variação': variação
+                    })
+            except KeyError:
+                pass
+    return resultados
 
-    <h2>Resultados das Comparações</h2>
-    <table id="resultTable">
-        <thead>
-            <tr>
-                <th>Data</th>
-                <th>Setor</th>
-                <th>Serial Number</th>
-                <th>Motivo da Troca</th>
-                <th>Coluna</th>
-                <th>Valor Dia Anterior</th>
-                <th>Valor Dia Atual</th>
-                <th>Diferença Diária</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Resultados de trocas indevidas -->
-        </tbody>
-    </table>
+# Função principal para execução
+def verificar_trocas_indevias(caminho_arquivo):
+    # Carregar os dados
+    df = carregar_planilha(caminho_arquivo)
+    
+    # Calcular as variações entre os dias
+    trocas_indevias = calcular_variacao(df)
+    
+    # Exibir as trocas indevidas
+    if trocas_indevias:
+        print("Trocas indevidas encontradas:")
+        for troca in trocas_indevias:
+            print(f"Data: {troca['Data']} | Setor: {troca['Setor']} | Variação: {troca['Variação']}%")
+    else:
+        print("Nenhuma troca indevida encontrada.")
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <script>
-        let data = [];
-        let columnsToCheck = [
-            'TONER', 'Magenta (%)', 'Yellow (%)', 'Cyan (%)', 
-            'FOTOCONDUTOR', 'FUSOR', 'Mono Lifetime Count', 'Color Lifetime Count'
-        ];
+# Caminho do arquivo (substitua pelo caminho correto)
+caminho_arquivo = 'caminho_da_planilha.xlsx'
 
-        function processCSV() {
-            const file = document.getElementById("csvFile").files[0];
-
-            if (!file) {
-                alert("Por favor, selecione o arquivo CSV.");
-                return;
-            }
-
-            // Processar o arquivo CSV
-            Papa.parse(file, {
-                complete: function(results) {
-                    data = results.data;
-                    compareData();
-                },
-                header: true
-            });
-        }
-
-        function compareData() {
-            const changes = [];
-            let groupedData = {};
-
-            // Agrupar os dados por Serial Number
-            data.forEach(row => {
-                const serial = row['Serial Number'];
-                const dataRow = {
-                    data: row['DATA'],
-                    setor: row['Setor'],
-                    toner: row['TONER'],
-                    magenta: parseFloat(row['Magenta (%)']) || 0,
-                    yellow: parseFloat(row['Yellow (%)']) || 0,
-                    cyan: parseFloat(row['Cyan (%)']) || 0,
-                    fotocondutor: parseFloat(row['FOTOCONDUTOR']) || 0,
-                    fusor: parseFloat(row['FUSOR']) || 0,
-                    monoLifetime: parseFloat(row['Mono Lifetime Count']) || 0,
-                    colorLifetime: parseFloat(row['Color Lifetime Count']) || 0
-                };
-
-                if (!groupedData[serial]) {
-                    groupedData[serial] = [];
-                }
-
-                groupedData[serial].push(dataRow);
-            });
-
-            // Comparar os dados por Serial Number e Data
-            for (const serial in groupedData) {
-                const rows = groupedData[serial].sort((a, b) => new Date(a.data) - new Date(b.data));
-
-                for (let i = 1; i < rows.length; i++) {
-                    const prevRow = rows[i - 1];
-                    const currentRow = rows[i];
-
-                    // Comparar todas as colunas para verificar trocas indevidas
-                    columnsToCheck.forEach(column => {
-                        const prevValue = prevRow[column.toLowerCase().replace(' (%)', '')] || 0;
-                        const currentValue = currentRow[column.toLowerCase().replace(' (%)', '')] || 0;
-                        const diff = currentValue - prevValue;
-
-                        let motivo = "";
-                        let difDia = "";
-
-                        // Caso a diferença seja para cima (indicando possível troca indevida)
-                        if (diff > 0) {
-                            motivo = "Possível troca indevida (aumento de porcentagem)";
-                        }
-                        // Caso a diferença seja muito acentuada para baixo
-                        else if (diff < -30) {  // Ajuste esse limite de acordo com a sua análise
-                            motivo = "Possível troca indevida (diminuição acentuada)";
-                        }
-
-                        // Calculando a diferença diária
-                        difDia = `${diff > 0 ? '+' : ''}${diff}%`;
-
-                        if (motivo) {
-                            changes.push({
-                                data: currentRow.data,
-                                setor: currentRow.setor,
-                                serial: serial,
-                                motivo: motivo,
-                                column: column,
-                                oldValue: prevValue,
-                                newValue: currentValue,
-                                difDia: difDia
-                            });
-                        }
-                    });
-                }
-            }
-
-            displayResults(changes);
-        }
-
-        function displayResults(changes) {
-            const tbody = document.getElementById("resultTable").getElementsByTagName('tbody')[0];
-            tbody.innerHTML = ""; // Limpar resultados anteriores
-
-            changes.forEach(change => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td>${change.data}</td>
-                    <td>${change.setor}</td>
-                    <td>${change.serial}</td>
-                    <td>${change.motivo}</td>
-                    <td>${change.column}</td>
-                    <td>${change.oldValue}%</td>
-                    <td>${change.newValue}%</td>
-                    <td>${change.difDia}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            if (changes.length === 0) {
-                const tr = document.createElement("tr");
-                tr.innerHTML = "<td colspan='8'>Nenhuma troca indevida detectada.</td>";
-                tbody.appendChild(tr);
-            }
-        }
-    </script>
-</body>
-</html>
+# Rodar a verificação
+verificar_trocas_indevias(caminho_arquivo)
