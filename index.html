@@ -1,77 +1,122 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Analisador de Log da Impressora Lexmark</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analisador de Logs - Impressora Lexmark</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background-color: #f4f4f4;
+      background-color: #f8f9fa;
+    }
+    .highlight {
+      background-color: #ffeeba;
     }
     textarea {
-      width: 100%;
-      height: 300px;
-      padding: 10px;
       font-family: monospace;
-    }
-    button {
-      margin-top: 10px;
-      padding: 10px 20px;
-      font-size: 16px;
-    }
-    .resultado {
-      margin-top: 20px;
-      padding: 20px;
-      background: white;
-      border-radius: 5px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    .erro {
-      margin-bottom: 10px;
-      padding: 10px;
-      border-left: 5px solid #e74c3c;
-      background-color: #fdecea;
     }
   </style>
 </head>
 <body>
-  <h1>Analisador de Log da Impressora Lexmark</h1>
-  <p>Cole abaixo o log completo da impressora para analisar os erros:</p>
+  <div class="container my-5">
+    <h1 class="mb-4 text-center">Analisador de Logs - Impressora Lexmark</h1>
 
-  <textarea id="logInput" placeholder="Cole aqui o log..."></textarea>
-  <button onclick="analisarLog()">Analisar Erros</button>
+    <div class="mb-3">
+      <label for="logInput" class="form-label">Cole o log da impressora aqui:</label>
+      <textarea id="logInput" class="form-control" rows="12" placeholder="Cole aqui o log completo..."></textarea>
+    </div>
 
-  <div class="resultado" id="resultado"></div>
+    <div class="mb-3 text-center">
+      <button class="btn btn-primary" onclick="analisarLog()">🔍 Analisar Log</button>
+      <button class="btn btn-success ms-2" onclick="exportarCSV()">⬇️ Exportar CSV</button>
+    </div>
+
+    <div id="resumoErros" class="my-4"></div>
+
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped" id="tabelaErros">
+        <thead class="table-dark">
+          <tr>
+            <th>Data/Hora</th>
+            <th>Contagem</th>
+            <th>Erro</th>
+            <th>Local</th>
+          </tr>
+        </thead>
+        <tbody id="corpoTabela"></tbody>
+      </table>
+    </div>
+  </div>
 
   <script>
     function analisarLog() {
-      const log = document.getElementById('logInput').value;
-      const resultado = document.getElementById('resultado');
-      resultado.innerHTML = '';
+      const log = document.getElementById("logInput").value;
+      const linhas = log.split('\n');
+      const eventos = [];
+      const contagemPorErro = {};
 
-      const regexErro = /\d{3}\.\d{2}[A-Z]?_[^\[]+/g;
-      const erros = log.match(regexErro);
+      for (let i = 0; i < linhas.length; i++) {
+        const linha = linhas[i].trim();
 
-      if (!erros) {
-        resultado.innerHTML = '<p>Nenhum erro encontrado.</p>';
-        return;
+        const dataHoraRegex = /^(\d{1,2} de .+? \d{4}, \d{2}:\d{2}:\d{2})$/;
+        const eventoRegex = /^(\d{1,2} de .+? \d{4}, \d{2}:\d{2}:\d{2})\s+([\d]+)\s+[\d]+\s+(.+?)\s+(.+)?$/;
+
+        const match = linha.match(eventoRegex);
+        if (match) {
+          const dataHora = match[1];
+          const contagem = match[2];
+          const erro = match[3];
+          const local = match[4] || "Não informado";
+
+          eventos.push({ dataHora, contagem, erro, local });
+
+          const codigoErro = erro.match(/\[(.*?)\]/)?.[1] || erro;
+          contagemPorErro[codigoErro] = (contagemPorErro[codigoErro] || 0) + 1;
+        }
       }
 
-      const contagem = {};
+      // Mostrar resumo
+      const resumoDiv = document.getElementById("resumoErros");
+      resumoDiv.innerHTML = `
+        <h4>Resumo dos Erros Encontrados</h4>
+        <ul class="list-group">
+          ${Object.entries(contagemPorErro).map(([erro, qtd]) =>
+            `<li class="list-group-item d-flex justify-content-between align-items-center">
+              ${erro}
+              <span class="badge bg-primary rounded-pill">${qtd}</span>
+            </li>`).join('')}
+        </ul>
+      `;
 
-      erros.forEach(erro => {
-        erro = erro.trim();
-        contagem[erro] = (contagem[erro] || 0) + 1;
+      // Preencher tabela
+      const corpoTabela = document.getElementById("corpoTabela");
+      corpoTabela.innerHTML = '';
+      eventos.forEach(e => {
+        corpoTabela.innerHTML += `
+          <tr>
+            <td>${e.dataHora}</td>
+            <td>${e.contagem}</td>
+            <td>${e.erro}</td>
+            <td>${e.local}</td>
+          </tr>`;
+      });
+    }
+
+    function exportarCSV() {
+      const rows = [["Data/Hora", "Contagem", "Erro", "Local"]];
+      document.querySelectorAll("#tabelaErros tbody tr").forEach(row => {
+        const cols = Array.from(row.querySelectorAll("td")).map(td => td.innerText);
+        rows.push(cols);
       });
 
-      for (const [erro, vezes] of Object.entries(contagem)) {
-        const div = document.createElement('div');
-        div.className = 'erro';
-        div.innerHTML = `<strong>${erro}</strong><br>Ocorrências: ${vezes}`;
-        resultado.appendChild(div);
-      }
+      const csvContent = rows.map(e => e.map(col => `"${col}"`).join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.setAttribute("href", URL.createObjectURL(blob));
+      link.setAttribute("download", "relatorio_erros_lexmark.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   </script>
 </body>
