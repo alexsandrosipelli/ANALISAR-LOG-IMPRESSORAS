@@ -9,10 +9,11 @@
     body {
       font-family: Arial, sans-serif;
       margin: 2rem;
-      background-color: #f8f9fa;
+      background: linear-gradient(to right, #f8f9fa, #fff6f0);
     }
     h1, h2 {
       color: #343a40;
+      text-align: center;
     }
     textarea {
       width: 100%;
@@ -20,6 +21,9 @@
       padding: 1rem;
       margin-bottom: 1rem;
       font-family: monospace;
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      background-color: #fff;
     }
     table {
       border-collapse: collapse;
@@ -40,27 +44,33 @@
       color: #fff;
       border: none;
       cursor: pointer;
-      margin-bottom: 1rem;
+      margin: 0.5rem;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background-color: #0056b3;
     }
     canvas {
       max-width: 100%;
       margin-top: 2rem;
     }
     .export-buttons {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
       margin-top: 1rem;
-    }
-    .export-buttons button {
-      margin-right: 0.5rem;
     }
   </style>
 </head>
 <body>
   <h1>🔍 Analisador de Log de Impressora Lexmark</h1>
   <textarea id="logInput" placeholder="Cole o log da impressora aqui..."></textarea>
-  <button onclick="analisarLog()">Gerar Relatório</button>
   <div class="export-buttons">
+    <button onclick="analisarLog()">Gerar Relatório</button>
     <button onclick="exportarCSV()">Exportar CSV</button>
     <button onclick="window.print()">Imprimir / Salvar PDF</button>
+    <button onclick="window.open('https://alexsandrosipelli.github.io/CSV-COMPARE-ARKLOK/', '_blank')">Analisar Trocas Indevidas</button>
   </div>
 
   <h2>📋 Relatório Mensal por Tipo de Evento</h2>
