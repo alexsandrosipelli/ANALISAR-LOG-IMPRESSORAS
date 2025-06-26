@@ -55,7 +55,10 @@
 
   <h2>📋 Relatório Mensal por Tipo de Evento</h2>
   <div id="tabelaRelatorio"></div>
+  <h2>📊 Gráfico Geral por Tipo de Evento</h2>
   <canvas id="graficoErros"></canvas>
+  <h2>📈 Gráfico Mensal por Tipo de Evento</h2>
+  <canvas id="graficoMensal"></canvas>
 
   <script>
     function analisarLog() {
@@ -66,7 +69,6 @@
 
       linhas.forEach((linha, i) => {
         const dataRegex = /([0-9]{1,2}) de ([a-zç]+) de ([0-9]{4})/i;
-        const eventoRegex = /([0-9]{3}\.[0-9]{2}[A-Z])_(.*)/;
         const matchData = linha.match(dataRegex);
         if (matchData && linhas[i + 3]) {
           const dia = parseInt(matchData[1]);
@@ -84,7 +86,6 @@
         resumo[chave] = (resumo[chave] || 0) + 1;
       });
 
-      // Montar tabela
       let html = '<table><tr><th>Mês</th><th>Tipo de Evento</th><th>Total</th></tr>';
       Object.keys(resumo).forEach(chave => {
         const [mes, tipo] = chave.split('-');
@@ -93,24 +94,24 @@
       html += '</table>';
       document.getElementById('tabelaRelatorio').innerHTML = html;
 
-      // Dados para gráfico
-      const agrupado = {};
+      const agrupadoTipo = {};
+      const agrupadoMes = {};
       eventos.forEach(e => {
-        agrupado[e.tipo] = (agrupado[e.tipo] || 0) + 1;
+        agrupadoTipo[e.tipo] = (agrupadoTipo[e.tipo] || 0) + 1;
+        agrupadoMes[e.mes] = agrupadoMes[e.mes] || {};
+        agrupadoMes[e.mes][e.tipo] = (agrupadoMes[e.mes][e.tipo] || 0) + 1;
       });
-      const labels = Object.keys(agrupado);
-      const dados = Object.values(agrupado);
 
-      // Gráfico
-      const ctx = document.getElementById('graficoErros').getContext('2d');
-      if (window.chartInstance) window.chartInstance.destroy();
-      window.chartInstance = new Chart(ctx, {
+      // Gráfico geral
+      const ctx1 = document.getElementById('graficoErros').getContext('2d');
+      if (window.chartInstance1) window.chartInstance1.destroy();
+      window.chartInstance1 = new Chart(ctx1, {
         type: 'bar',
         data: {
-          labels: labels,
+          labels: Object.keys(agrupadoTipo),
           datasets: [{
             label: 'Total por Tipo de Evento',
-            data: dados,
+            data: Object.values(agrupadoTipo),
             backgroundColor: '#007bff'
           }]
         },
@@ -122,6 +123,40 @@
               display: true,
               text: 'Erros por Tipo no Período'
             }
+          }
+        }
+      });
+
+      // Gráfico mensal
+      const tipos = [...new Set(eventos.map(e => e.tipo))];
+      const mesesPresentes = Object.keys(agrupadoMes);
+      const datasets = tipos.map(tipo => {
+        return {
+          label: tipo,
+          data: mesesPresentes.map(mes => agrupadoMes[mes][tipo] || 0),
+          backgroundColor: '#' + Math.floor(Math.random()*16777215).toString(16)
+        };
+      });
+
+      const ctx2 = document.getElementById('graficoMensal').getContext('2d');
+      if (window.chartInstance2) window.chartInstance2.destroy();
+      window.chartInstance2 = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: mesesPresentes,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Distribuição de Eventos por Mês e Tipo'
+            }
+          },
+          scales: {
+            x: { stacked: true },
+            y: { stacked: true }
           }
         }
       });
