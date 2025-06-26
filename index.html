@@ -75,22 +75,23 @@
           const mesTexto = matchData[2].toLowerCase();
           const ano = parseInt(matchData[3]);
           const eventoLinha = linhas[i + 3];
-          const tipo = eventoLinha.split('_')[0];
+          const tipoCompleto = eventoLinha.split('_')[0];
+          const tipoNome = eventoLinha.split('_').slice(1).join(' ').replace(/\[.*?\]/g, '').replace(/_/g, ' ').trim();
           const mesPadronizado = mesTexto.charAt(0).toUpperCase() + mesTexto.slice(1);
-          eventos.push({ ano, mes: mesPadronizado, tipo });
+          eventos.push({ ano, mes: mesPadronizado, tipo: tipoCompleto, nome: tipoNome });
         }
       });
 
       const resumo = {};
       eventos.forEach(e => {
-        const chave = `${e.ano}-${e.mes}-${e.tipo}`;
+        const chave = `${e.ano}-${e.mes}-${e.tipo}-${e.nome}`;
         resumo[chave] = (resumo[chave] || 0) + 1;
       });
 
-      let html = '<table><tr><th>Ano</th><th>Mês</th><th>Tipo de Evento</th><th>Total</th></tr>';
+      let html = '<table><tr><th>Ano</th><th>Mês</th><th>Código do Evento</th><th>Nome do Evento</th><th>Total</th></tr>';
       Object.entries(resumo).forEach(([chave, total]) => {
-        const [ano, mes, tipo] = chave.split('-');
-        html += `<tr><td>${ano}</td><td>${mes}</td><td>${tipo}</td><td>${total}</td></tr>`;
+        const [ano, mes, tipo, nome] = chave.split('-');
+        html += `<tr><td>${ano}</td><td>${mes}</td><td>${tipo}</td><td>${nome}</td><td>${total}</td></tr>`;
       });
       html += '</table>';
       document.getElementById('tabelaRelatorio').innerHTML = html;
@@ -98,10 +99,12 @@
       const agrupadoTipo = {};
       const agrupadoMensal = {};
       eventos.forEach(e => {
-        agrupadoTipo[e.tipo] = (agrupadoTipo[e.tipo] || 0) + 1;
+        const chaveTipo = `${e.tipo} - ${e.nome}`;
+        agrupadoTipo[chaveTipo] = (agrupadoTipo[chaveTipo] || 0) + 1;
+
         const mesAno = `${e.mes}/${e.ano}`;
         if (!agrupadoMensal[mesAno]) agrupadoMensal[mesAno] = {};
-        agrupadoMensal[mesAno][e.tipo] = (agrupadoMensal[mesAno][e.tipo] || 0) + 1;
+        agrupadoMensal[mesAno][chaveTipo] = (agrupadoMensal[mesAno][chaveTipo] || 0) + 1;
       });
 
       // Gráfico geral
@@ -135,7 +138,7 @@
         return data1 - data2;
       });
 
-      const todosTipos = [...new Set(eventos.map(e => e.tipo))];
+      const todosTipos = [...new Set(eventos.map(e => `${e.tipo} - ${e.nome}`))];
       const datasets = todosTipos.map(tipo => {
         return {
           label: tipo,
