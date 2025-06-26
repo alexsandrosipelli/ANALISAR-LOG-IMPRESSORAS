@@ -46,12 +46,22 @@
       max-width: 100%;
       margin-top: 2rem;
     }
+    .export-buttons {
+      margin-top: 1rem;
+    }
+    .export-buttons button {
+      margin-right: 0.5rem;
+    }
   </style>
 </head>
 <body>
   <h1>🔍 Analisador de Log de Impressora Lexmark</h1>
   <textarea id="logInput" placeholder="Cole o log da impressora aqui..."></textarea>
   <button onclick="analisarLog()">Gerar Relatório</button>
+  <div class="export-buttons">
+    <button onclick="exportarCSV()">Exportar CSV</button>
+    <button onclick="window.print()">Imprimir / Salvar PDF</button>
+  </div>
 
   <h2>📋 Relatório Mensal por Tipo de Evento</h2>
   <div id="tabelaRelatorio"></div>
@@ -61,6 +71,8 @@
   <canvas id="graficoMensal"></canvas>
 
   <script>
+    let ultimoResumo = [];
+
     function analisarLog() {
       const log = document.getElementById('logInput').value;
       const linhas = log.split('\n');
@@ -88,10 +100,15 @@
         resumo[chave] = (resumo[chave] || 0) + 1;
       });
 
+      ultimoResumo = Object.entries(resumo).map(([chave, total]) => {
+        const [ano, mes, tipo, ...nomeArr] = chave.split('-');
+        const nome = nomeArr.join('-');
+        return { ano, mes, tipo, nome, total };
+      });
+
       let html = '<table><tr><th>Ano</th><th>Mês</th><th>Código do Evento</th><th>Nome do Evento</th><th>Total</th></tr>';
-      Object.entries(resumo).forEach(([chave, total]) => {
-        const [ano, mes, tipo, nome] = chave.split('-');
-        html += `<tr><td>${ano}</td><td>${mes}</td><td>${tipo}</td><td>${nome}</td><td>${total}</td></tr>`;
+      ultimoResumo.forEach(row => {
+        html += `<tr><td>${row.ano}</td><td>${row.mes}</td><td>${row.tipo}</td><td>${row.nome}</td><td>${row.total}</td></tr>`;
       });
       html += '</table>';
       document.getElementById('tabelaRelatorio').innerHTML = html;
@@ -107,7 +124,6 @@
         agrupadoMensal[mesAno][chaveTipo] = (agrupadoMensal[mesAno][chaveTipo] || 0) + 1;
       });
 
-      // Gráfico geral
       const ctx1 = document.getElementById('graficoErros').getContext('2d');
       if (window.chartInstance1) window.chartInstance1.destroy();
       window.chartInstance1 = new Chart(ctx1, {
@@ -129,7 +145,6 @@
         }
       });
 
-      // Gráfico mensal por tipo
       const mesesOrdenados = Object.keys(agrupadoMensal).sort((a,b) => {
         const [m1, y1] = a.split('/');
         const [m2, y2] = b.split('/');
@@ -169,6 +184,21 @@
           }
         }
       });
+    }
+
+    function exportarCSV() {
+      if (!ultimoResumo.length) return;
+      const linhas = ['Ano,Mês,Código do Evento,Nome do Evento,Total'];
+      ultimoResumo.forEach(l => {
+        linhas.push(`${l.ano},${l.mes},${l.tipo},"${l.nome}",${l.total}`);
+      });
+      const blob = new Blob([linhas.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'relatorio_log_impressora.csv';
+      a.click();
+      URL.revokeObjectURL(url);
     }
   </script>
 </body>
