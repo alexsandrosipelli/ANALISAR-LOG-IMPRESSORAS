@@ -3,120 +3,131 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Analisador de Logs - Impressora Lexmark</title>
+  <title>Relatório de Logs - Impressora Lexmark</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body {
       background-color: #f8f9fa;
     }
-    .highlight {
-      background-color: #ffeeba;
-    }
     textarea {
       font-family: monospace;
+    }
+    table {
+      font-size: 0.9rem;
     }
   </style>
 </head>
 <body>
   <div class="container my-5">
-    <h1 class="mb-4 text-center">Analisador de Logs - Impressora Lexmark</h1>
+    <h1 class="text-center mb-4">Analisador de Logs - Relatório Mensal</h1>
 
     <div class="mb-3">
-      <label for="logInput" class="form-label">Cole o log da impressora aqui:</label>
-      <textarea id="logInput" class="form-control" rows="12" placeholder="Cole aqui o log completo..."></textarea>
+      <label for="logInput" class="form-label">Cole o log completo da impressora abaixo:</label>
+      <textarea id="logInput" class="form-control" rows="10" placeholder="Cole aqui o log..."></textarea>
     </div>
 
-    <div class="mb-3 text-center">
-      <button class="btn btn-primary" onclick="analisarLog()">🔍 Analisar Log</button>
+    <div class="text-center mb-4">
+      <button class="btn btn-primary" onclick="gerarRelatorio()">📊 Gerar Relatório</button>
       <button class="btn btn-success ms-2" onclick="exportarCSV()">⬇️ Exportar CSV</button>
     </div>
 
-    <div id="resumoErros" class="my-4"></div>
-
-    <div class="table-responsive">
-      <table class="table table-bordered table-striped" id="tabelaErros">
-        <thead class="table-dark">
-          <tr>
-            <th>Data/Hora</th>
-            <th>Contagem</th>
-            <th>Erro</th>
-            <th>Local</th>
-          </tr>
-        </thead>
-        <tbody id="corpoTabela"></tbody>
-      </table>
-    </div>
+    <div id="relatorioContainer"></div>
   </div>
 
   <script>
-    function analisarLog() {
+    function gerarRelatorio() {
       const log = document.getElementById("logInput").value;
       const linhas = log.split('\n');
-      const eventos = [];
-      const contagemPorErro = {};
+      const eventosPorMesECategoria = {};
 
-      for (let i = 0; i < linhas.length; i++) {
-        const linha = linhas[i].trim();
+      const meses = [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+      ];
 
-        const dataHoraRegex = /^(\d{1,2} de .+? \d{4}, \d{2}:\d{2}:\d{2})$/;
-        const eventoRegex = /^(\d{1,2} de .+? \d{4}, \d{2}:\d{2}:\d{2})\s+([\d]+)\s+[\d]+\s+(.+?)\s+(.+)?$/;
+      linhas.forEach(linha => {
+        // Match data no formato: "26 de junho de 2025"
+        const dataMatch = linha.match(/^(\d{1,2}) de (\w+) de (\d{4})/i);
+        if (dataMatch) {
+          const dia = dataMatch[1];
+          const mesStr = dataMatch[2].toLowerCase();
+          const ano = dataMatch[3];
+          const dataCompleta = `${dia} de ${mesStr} de ${ano}`;
+          const mesNome = mesStr.charAt(0).toUpperCase() + mesStr.slice(1);
 
-        const match = linha.match(eventoRegex);
-        if (match) {
-          const dataHora = match[1];
-          const contagem = match[2];
-          const erro = match[3];
-          const local = match[4] || "Não informado";
+          // Verifica se há evento na próxima linha
+          const idx = linhas.indexOf(linha);
+          const proximaLinha = linhas[idx + 3] || "";
+          const eventoMatch = proximaLinha.match(/([a-zA-Z0-9._]+)(?=\s|\[|$)/);
+          if (eventoMatch) {
+            const categoria = eventoMatch[1];
 
-          eventos.push({ dataHora, contagem, erro, local });
+            if (!eventosPorMesECategoria[mesNome]) {
+              eventosPorMesECategoria[mesNome] = {};
+            }
 
-          const codigoErro = erro.match(/\[(.*?)\]/)?.[1] || erro;
-          contagemPorErro[codigoErro] = (contagemPorErro[codigoErro] || 0) + 1;
+            if (!eventosPorMesECategoria[mesNome][categoria]) {
+              eventosPorMesECategoria[mesNome][categoria] = 0;
+            }
+
+            eventosPorMesECategoria[mesNome][categoria]++;
+          }
+        }
+      });
+
+      // Gerar HTML da tabela
+      const todasCategorias = new Set();
+      for (const mes in eventosPorMesECategoria) {
+        Object.keys(eventosPorMesECategoria[mes]).forEach(cat => todasCategorias.add(cat));
+      }
+
+      const categoriasArray = Array.from(todasCategorias);
+      let html = `
+        <h4 class="mb-3">Histórico Resumido por Mês e Categoria</h4>
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+              <tr>
+                <th>Mês</th>
+                ${categoriasArray.map(c => `<th>${c}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      // Preencher linhas da tabela
+      for (const mes of meses) {
+        if (eventosPorMesECategoria[mes]) {
+          html += `<tr><td>${mes}</td>`;
+          categoriasArray.forEach(cat => {
+            const valor = eventosPorMesECategoria[mes][cat] || 0;
+            html += `<td>${valor}</td>`;
+          });
+          html += `</tr>`;
         }
       }
 
-      // Mostrar resumo
-      const resumoDiv = document.getElementById("resumoErros");
-      resumoDiv.innerHTML = `
-        <h4>Resumo dos Erros Encontrados</h4>
-        <ul class="list-group">
-          ${Object.entries(contagemPorErro).map(([erro, qtd]) =>
-            `<li class="list-group-item d-flex justify-content-between align-items-center">
-              ${erro}
-              <span class="badge bg-primary rounded-pill">${qtd}</span>
-            </li>`).join('')}
-        </ul>
-      `;
-
-      // Preencher tabela
-      const corpoTabela = document.getElementById("corpoTabela");
-      corpoTabela.innerHTML = '';
-      eventos.forEach(e => {
-        corpoTabela.innerHTML += `
-          <tr>
-            <td>${e.dataHora}</td>
-            <td>${e.contagem}</td>
-            <td>${e.erro}</td>
-            <td>${e.local}</td>
-          </tr>`;
-      });
+      html += `</tbody></table></div>`;
+      document.getElementById("relatorioContainer").innerHTML = html;
     }
 
     function exportarCSV() {
-      const rows = [["Data/Hora", "Contagem", "Erro", "Local"]];
-      document.querySelectorAll("#tabelaErros tbody tr").forEach(row => {
-        const cols = Array.from(row.querySelectorAll("td")).map(td => td.innerText);
-        rows.push(cols);
+      const tabela = document.querySelector("#relatorioContainer table");
+      if (!tabela) return alert("Gere um relatório primeiro.");
+
+      const linhas = [];
+      const trs = tabela.querySelectorAll("tr");
+      trs.forEach(tr => {
+        const cols = Array.from(tr.querySelectorAll("th, td")).map(td => `"${td.innerText}"`);
+        linhas.push(cols.join(","));
       });
 
-      const csvContent = rows.map(e => e.map(col => `"${col}"`).join(",")).join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const csv = linhas.join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
       const link = document.createElement("a");
-      link.setAttribute("href", URL.createObjectURL(blob));
-      link.setAttribute("download", "relatorio_erros_lexmark.csv");
-      document.body.appendChild(link);
+      link.href = URL.createObjectURL(blob);
+      link.download = "relatorio_mensal_logs.csv";
       link.click();
-      document.body.removeChild(link);
     }
   </script>
 </body>
