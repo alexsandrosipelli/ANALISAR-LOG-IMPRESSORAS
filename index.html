@@ -1,147 +1,78 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
-
+<html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validação de Impressoras</title>
-    <style>
-        /* Reset básico */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            background-color: #f4f4f4;
-            color: #333;
-            margin: 20px;
-        }
-
-        header {
-            background-color: #333;
-            color: #fff;
-            padding: 10px 20px;
-            text-align: center;
-        }
-
-        main {
-            margin-top: 20px;
-        }
-
-        h2 {
-            margin-top: 20px;
-        }
-
-        section {
-            margin-bottom: 30px;
-        }
-
-        footer {
-            text-align: center;
-            font-size: 0.9rem;
-            margin-top: 40px;
-        }
-
-        input[type="file"] {
-            padding: 10px;
-            background-color: #fff;
-            border: 2px solid #ccc;
-            margin-top: 10px;
-        }
-
-        #validationResults {
-            background-color: #fff;
-            padding: 10px;
-            border: 1px solid #ccc;
-            margin-top: 20px;
-            white-space: pre-wrap;
-            font-family: monospace;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analisador de Log da Impressora Lexmark</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    textarea {
+      width: 100%;
+      height: 300px;
+      padding: 10px;
+      font-family: monospace;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+    .resultado {
+      margin-top: 20px;
+      padding: 20px;
+      background: white;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .erro {
+      margin-bottom: 10px;
+      padding: 10px;
+      border-left: 5px solid #e74c3c;
+      background-color: #fdecea;
+    }
+  </style>
 </head>
-
 <body>
-    <header>
-        <h1>Validação de Impressoras</h1>
-        <p>Carregue os dados e validamos se ocorreu troca indevida!</p>
-    </header>
+  <h1>Analisador de Log da Impressora Lexmark</h1>
+  <p>Cole abaixo o log completo da impressora para analisar os erros:</p>
 
-    <main>
-        <section>
-            <h2>Carregar Arquivo</h2>
-            <input type="file" id="inputFile" accept=".csv, .xls, .xlsx" />
-        </section>
+  <textarea id="logInput" placeholder="Cole aqui o log..."></textarea>
+  <button onclick="analisarLog()">Analisar Erros</button>
 
-        <section id="output">
-            <h2>Resultados da Validação</h2>
-            <pre id="validationResults">Nenhum dado carregado ainda...</pre>
-        </section>
-    </main>
+  <div class="resultado" id="resultado"></div>
 
-    <footer>
-        <p>Hospedado no <a href="https://pages.github.com/" target="_blank">GitHub Pages</a></p>
-    </footer>
+  <script>
+    function analisarLog() {
+      const log = document.getElementById('logInput').value;
+      const resultado = document.getElementById('resultado');
+      resultado.innerHTML = '';
 
-    <script>
-        document.getElementById('inputFile').addEventListener('change', handleFileUpload);
+      const regexErro = /\d{3}\.\d{2}[A-Z]?_[^\[]+/g;
+      const erros = log.match(regexErro);
 
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
+      if (!erros) {
+        resultado.innerHTML = '<p>Nenhum erro encontrado.</p>';
+        return;
+      }
 
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    const content = e.target.result;
-                    const data = parseCSV(content);
-                    const validationResults = validateData(data);
-                    displayResults(validationResults);
-                };
-                reader.readAsText(file);
-            } else {
-                alert('Por favor, selecione um arquivo!');
-            }
-        }
+      const contagem = {};
 
-        function parseCSV(content) {
-            const rows = content.split('\n');
-            const data = rows.map(row => row.split('\t'));  // Assumindo que os dados são separados por tabulação.
-            return data;
-        }
+      erros.forEach(erro => {
+        erro = erro.trim();
+        contagem[erro] = (contagem[erro] || 0) + 1;
+      });
 
-        function validateData(data) {
-            const results = [];
-            let previousData = null;
-            data.forEach((row, index) => {
-                if (index === 0) {
-                    previousData = row;
-                    return;
-                }
-
-                const currentData = row;
-                const sector = currentData[1];
-
-                // Validação simples: se o setor for o mesmo que o anterior e as porcentagens de impressão diferirem muito.
-                if (sector === previousData[1] && Math.abs(currentData[3] - previousData[3]) > 10) {
-                    results.push(`Troca indevida detectada no setor: ${sector} no dia: ${currentData[0]}`);
-                }
-                previousData = currentData;
-            });
-            return results;
-        }
-
-        function displayResults(results) {
-            const resultElement = document.getElementById('validationResults');
-            if (results.length === 0) {
-                resultElement.textContent = 'Nenhuma troca indevida detectada.';
-            } else {
-                resultElement.textContent = results.join('\n');
-            }
-        }
-    </script>
+      for (const [erro, vezes] of Object.entries(contagem)) {
+        const div = document.createElement('div');
+        div.className = 'erro';
+        div.innerHTML = `<strong>${erro}</strong><br>Ocorrências: ${vezes}`;
+        resultado.appendChild(div);
+      }
+    }
+  </script>
 </body>
-
 </html>
